@@ -64,9 +64,12 @@ def buildStepDocker() {
 			tag = "${env.BRANCH_NAME.replace('/','-')}";
 		}
 
+		def PUSH_ARTIFACT = false;
+
 		if (env.TAG_NAME) {
 			EXTRA_VER = "";
 			VER = "${env.TAG_NAME}";
+			PUSH_ARTIFACT = true;
 		} else if (env.BRANCH_NAME.equals('dev')) {
 			EXTRA_VER = "--build-arg VER_EXTRA=-beta";
 		} else {
@@ -77,8 +80,62 @@ def buildStepDocker() {
 			def release_name = env.JOB_NAME.replace('%2F','/');
 			def release_type = ("${release_name}").replace('/','-').replace('node-grc-','').replace('main','').replace('dev','');
 
+			def customImage;
+
 			stage("Building project") {
-				def customImage = docker.build("ghidra:${tag}", "--build-arg BUILDENV=${buildenv} ${EXTRA_VER} --network=host --pull -f Dockerfile .");
+				customImage = docker.build("ghidra:${tag}", "--build-arg BUILDENV=${buildenv} ${EXTRA_VER} --network=host --pull -f Dockerfile .");
+			}
+
+			if (PUSH_ARTIFACT) {
+				stage("Archiving artifacts...") {
+					customImage.inside("") {
+						sh "mkdir -p ./dist && cp -fvr build/dist/* ./dist"
+
+						dir("./dist") {
+							archiveArtifacts artifacts: '*.zip,*.tar.gz,*.tgz', allowEmptyArchive: true
+							discordSend description: "Docker Image: ${DOCKER_ROOT}/${DOCKERIMAGE}:${tag}", footer: "", link: env.BUILD_URL, result: currentBuild.currentResult, title: "[${split_job_name[0]}] Artifact Successful: ${fixed_job_name} #${env.BUILD_NUMBER}", webhookURL: env.GS2EMU_WEBHOOK;
+						}
+					}
+					def dockerImageRef = docker.image("amigadev/docker-base:latest");
+					dockerImageRef.pull();
+
+					dockerImageRef.inside("") {
+
+						stage("Github Release") {
+							withCredentials([string(credentialsId: 'PREAGONAL_GITHUB_TOKEN', variable: 'GITHUB_TOKEN')]) {
+								dir("./dist") {
+									if (!env.CHANGE_ID) { // Don't run on PR's
+										def release_type_tag = 'develop';
+										def pre_release = '--pre-release';
+										if (env.TAG_NAME) {
+											pre_release = '';
+											release_type_tag = env.TAG_NAME;
+										} else if (env.BRANCH_NAME.equals('master')) {
+											release_type_tag = 'nightly';
+										}
+
+
+										if (!env.TAG_NAME) {
+											sh(returnStdout: true, script: "echo -e '${release_type_tag} releases' > ../RELEASE_DESCRIPTION.txt");
+										}
+
+										def files = sh(returnStdout: true, script: 'find . -name "*.zip" -o -name "*.tar.gz"');
+										files = sh (script: "basename ${files}",returnStdout:true).trim()
+
+										try {
+											sh "cat ../RELEASE_DESCRIPTION.txt | github-release release --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"Ghidra ${release_type_tag}\" ${pre_release} --description -"
+										} catch(err) {
+
+										}
+										sh "github-release upload --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"${files}\" --file ${files} --replace"
+									}
+								}
+							}
+						}
+					}
+				}
+			} else {
+				// Do nothing
 			}
 
 			def archive_date = sh (
