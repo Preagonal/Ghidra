@@ -127,7 +127,12 @@ def buildStepDocker() {
 										} catch(err) {
 
 										}
-										sh "github-release upload --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"${files}\" --file ${files} --replace"
+										try {
+											sh "github-release upload --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"${files}\" --file ${files} --replace"
+										} catch(err) {
+											sleep 15;
+											sh "github-release upload --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"${files}\" --file ${files} --replace"
+										}
 									}
 								}
 							}
