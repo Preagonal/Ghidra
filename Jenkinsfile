@@ -131,12 +131,14 @@ def buildStepDocker() {
 										try {
 											files.eachWithIndex { file, idx -> 
 												try {
-													file = sh (script: "basename ${file}",returnStdout:true).trim();
-													try {
-														sh "github-release upload --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"${file}\" --file ${file} --replace";
-													} catch(err) {
-														sleep 15;
-														sh "github-release upload --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"${file}\" --file ${file} --replace";
+													if (file != null && !file.allWhitespace) {
+														file = sh (script: "basename ${file}",returnStdout:true).trim();
+														try {
+															sh "github-release upload --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"${file}\" --file ${file} --replace";
+														} catch(err) {
+															sleep 15;
+															sh "github-release upload --user Preagonal --repo ghidra --tag ${release_type_tag} --name \"${file}\" --file ${file} --replace";
+														}
 													}
 												} catch(err) {
 
