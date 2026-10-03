@@ -46,7 +46,7 @@ dependencies {
 	api ':AXMLPrinter2'
 
 	// Used by "ZIP" and "7zip" file systems
-	api 'net.sf.sevenzipjbinding:sevenzipjbinding:16.02-2.01'	
+	api 'net.sf.sevenzipjbinding:sevenzipjbinding:23.01-2.2'	
 	runtimeOnly 'net.sf.sevenzipjbinding:sevenzipjbinding-all-platforms:16.02-2.01'
 	
 	// include code from src/test/slow in Base
